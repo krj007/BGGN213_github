@@ -1,0 +1,219 @@
+---
+title: "Class 5: Data Visualization with ggplot2"
+author: "Krysten Jones (A10553682)"
+format: pdf
+---
+
+## Using ggplot2
+
+To use ggplot2, first we need to install it on our computers. To do this we will use the function`install.packages()`
+We could put this in a code chunk, but every time we click render it will install the package again. Instead install in the consule (only need to do once)
+
+Before we use any package functions, we have to load them up with a `library' call, like below:
+
+```{r}
+library(ggplot2)
+```
+
+First let's examine the structure of our data frame. You can use the head or tail functions here to view the first or last 6 rows respectively
+
+```{r}
+head(cars)
+```
+The structure function will give you even more information
+
+```{r}
+str(cars)
+```
+
+Plotting in ggplot: requires 3 different aspects. The first is the data, than the aesthetics `aes()` than the geometry/graph type `geom()`
+- data (the stuff we want to plot as a data.frame)
+- aesthetics (how the data map to the plot/what it looks like)
+- geometry (how we want something drawn)
+
+```{r}
+ggplot(cars, aes(speed, dist)) + 
+  geom_point() +
+  geom_smooth()
+
+#best practice here to code on different lines, makes it easier to find errors later
+```
+`method = "lm"` asks for a trend line, the gray area around it is the standard error of the mean (SEM)
+Will add things line by line, so if want something overlaid, then add it at the end
+
+```{r}
+ggplot(cars, aes(speed, dist)) + 
+  geom_point() +
+  geom_smooth(method ="lm", se=FALSE)
+```
+`se = FALSE` will remove the standard error line
+
+Now we're going to add more labels. The `aes( )` function will decide what DATA to put on the x and y axis. The `labs()` function is where you can customize what you want each axis to say.
+
+```{r}
+ggplot(cars, aes(speed, dist)) + 
+  geom_point() +
+  geom_smooth(method ="lm", se=FALSE) +
+  labs(title="Speed and Stopping Distances of Cars",
+       x="Speed (MPH)", 
+       y="Stopping Distance (ft)",
+       subtitle = "Increased Stopping Distance with Speed",
+       caption="Dataset: 'cars'") +
+       theme_bw()
+```
+
+```{r}
+url <- "https://bioboot.github.io/bimm143_S20/class-material/up_down_expression.txt"
+genes <- read.delim(url)
+head(genes)
+```
+```{r}
+nrow(genes)
+```
+```{r}
+colnames(genes)
+ncol(genes)
+```
+```{r}
+genes$State
+table(genes$State)
+```
+so there are 5169 rows, and 4 different columns including state. So the above is saying from the genes data.frame, choose the "State" column. 
+
+```{r}
+sum(genes$State == "up")
+```
+The above code will first go through the state column and turn everything True or False, it will then sum it for you so you know how many are upregulated vs downregulated. This is an alternative to table above
+
+`#/ eval: false` or `echo=false` in a code box will make R not run the code in the code box. This is an alterantive to putting "#" in front of each line of cod you do not want run, but may still want included
+
+```{r}
+round( table(genes$State)/nrow(genes) * 100, 2)
+```
+The above code is asking to use the dataframe genes, look at the state column and divide by the total numbers of rows in the genes data.frame.The 
+Then multiply by 100 and finally round it to 2 significant figures (what the 2 in the code above is referring to).
+
+```{r}
+p <- ggplot(genes, aes(Condition1, Condition2, col=State)) +
+         geom_point()
+p
+```
+
+```{r}
+p + scale_colour_manual( values=c("blue","gray","red") ) +
+  labs(title = "Gene Expression Changes Upon Drug Treatment",
+       x= "Control(no drug)",
+       y= "Drug Treatment")
+```
+Order matters here, you can try different color combinations depending on what you want to highlight.
+
+We're now going to use gapfinder dataset with the dplyr program. Just like for ggplot, you're going to want to install it from your console (and not have it run as part of this file) so you don't have to re-install it everytime you change something on this file.`install.packages("gapminder")` and `install.packages("dplyr")`
+
+```{r}
+library(gapminder)
+library(dplyr)
+```
+```{r}
+gapminder_2007 <- gapminder %>% filter(year==2007)
+ggplot(gapminder_2007, 
+       aes(gdpPercap, lifeExp, color = continent, size = pop)) +
+  geom_point(alpha=0.4)
+```
+
+```{r}
+ggplot(gapminder_2007) + 
+  aes(x = gdpPercap, y = lifeExp, color = pop) +
+  geom_point(alpha=0.8) 
+```
+Now we've plotted a gradient of color based on polulation instead of using discrete categories
+
+```{r}
+ggplot(gapminder_2007) + 
+  geom_point(aes(x = gdpPercap, y = lifeExp, size = pop),
+             alpha=0.5) + 
+  scale_size_area(max_size = 10)
+```
+
+Here we are defining the size of our bubbles by population, but also making them partially transparent so we can see our data better
+
+```{r}
+gapminder_1957 <- gapminder %>% filter(year==1957)
+```
+Now:Use `scale_size_area()` so that the point sizes reflect the actual population differences and set the max_size of each point to 15. Also, set the opacity/transparency of each point to 70% using the `alpha=0.7` parameter
+
+```{r}
+ggplot(gapminder_1957, 
+       aes(gdpPercap, lifeExp, color = continent, size = pop, alpha=0.7)) +
+  geom_point() +
+  scale_size_area(max_size = 15)
+```
+Now facet it (aka split into different graphs)
+
+```{r}
+both <- gapminder %>% filter(year==1957 | year==2007)
+
+ggplot(both) + 
+  geom_point(aes(x = gdpPercap, y = lifeExp, color=continent,
+                 size = pop), alpha=0.7) + 
+  scale_size_area(max_size = 15) +
+  facet_wrap(~year)
+```
+
+## Section 8: Bar Charts
+
+```{r}
+gapminder_top5 <- gapminder %>% 
+  filter(year==2007) %>% 
+  arrange(desc(pop)) %>% 
+  top_n(5, pop)
+
+gapminder_top5
+```
+Life expectancy of the top 5 countries
+```{r}
+ggplot(gapminder_top5) + 
+  geom_col(aes(x = country, y = lifeExp, fill =continent))
+```
+Let's try using a numerical value to color instead, so swich fill to life expectancy
+
+```{r}
+ggplot(gapminder_top5) + 
+  geom_col(aes(x = country, y = pop, fill = lifeExp))
+```
+
+```{r}
+ggplot(gapminder_top5) + 
+  geom_col(aes(x=reorder(country, -pop), y = pop, fill = gdpPercap))
+```
+The reorder function will allow you to reorder the bars based on what you put in your arguments.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
