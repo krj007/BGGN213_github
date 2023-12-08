@@ -1,6 +1,6 @@
-# BGGN213
+# Bioinformatics Class Fall 2023
 
-Classwork from [BGGN213](https://bioboot.github.io/bggn213_F23/) at UC San Diego (Fall 2023)
+Classwork from [BGGN213](https://bioboot.github.io/bggn213_F23/) at UC San Diego
 - [Class 1 Data Visualization with ggplot2](https://github.com/krj007/BGGN213_github/blob/main/class05/Class05_Ggplot2.md)
 - [Class 2 Functions in R](https://github.com/krj007/BGGN213_github/blob/main/Class06_Functions/Class06_Functions.md)
 - [Class 3 Unsupervised Machine Learning](https://github.com/krj007/BGGN213_github/blob/main/Class07_Unsupervised_Machine_Learning/Class07_Unsupervised_Machine_Learning.md)
