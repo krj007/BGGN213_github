@@ -1,0 +1,274 @@
+---
+title: "Class07_Unsupervised_Machine_Learning1"
+author: "Krysten Jones (A10553682)"
+format: pdf 
+---
+Today we will start with k-means clustering which is one of the most popular means of clustering along with UMAP and t-SNE. K-means is fast and computes many things for you. The challenge with this is you have to define the number of clusters (represented by K) for your data. 
+
+Lets try this out on some madeup data using `rnorm(n=x, mean = y)`. This function will randomly give back a set of numbers (defined by x here) from a normal distribution with the central mean being y. You don't can also code it as `rnorm(x,y)` and r will assume based on the order of arguments, but for clarity it is often better to write the first form
+```{r}
+rnorm(10,3)
+hist(rnorm(n=1000, mean =3))
+
+```
+
+We can also combine multiple vectors in the rnorm function. The code below should give you 60 datapoints
+
+```{r}
+tmp <- c(rnorm(30,3), rnorm(30,-3))
+tmp
+```
+
+We can also make matrices using the `cbind()` function which will put the arguments in the ( ) as columns as compared to `rbind()` which will add them as rows. The "x" and "y" labels here are arbitrary and whatever you write here will be added as labels at the top of the columns or rows respectively. The `rev` here is asking for the reverse of the vector in the ( ).
+```{r}
+x <- cbind(x=tmp, y=rev(tmp))
+x
+plot(x)
+```
+
+The main function in R for k-means clustering is called `kmeans()`. It requires 3 arguments the first being what dataset to use (here represented by x), the number of clusters assigned by `centers=`, and the number of iterations to run it which is defined by the `nstart=`
+
+```{r}
+k <- kmeans(x, centers=2, nstart =20)
+k
+```
+
+Looking at the readouts, it will give you a variety of pieces of information
+
+The center location for the mean of the values in each cluster (you can also do complete, single, or average by changing the arguments). 
+
+Then the clustering vector will tell you which group each value is in (here we told it to make 2 clusters so it will be either 1 or 2). 
+
+It will then give you the within cluster sum of squares. This is the Euclidian distance between the center of a cluster and a point in the cluster, squared and then repeated and summed for all points in the cluster. The more clusters you have then, the smaller these numbers will be.
+
+You can also ask it to just give you specific portions as indicated in the questions below. Don't forget you can always check the options using the `?kmeans` command.
+
+> Q1. How many points are in each cluster
+
+```{r}
+k$size
+```
+
+> Q2. What is the clustering result (i.e. membership vector)?
+
+```{r}
+k$cluster
+```
+
+>Q3.What are the cluster centers?
+
+```{r}
+k$centers
+```
+
+
+>Q4. Make a plot of our data colored by clustering results with optionally the cluster centers shown.
+
+```{r}
+plot(x, col=c("red", "blue"))
+```
+
+This will color by data points in the vector order, but we want to color by cluster. How do we do this?
+
+```{r}
+plot(x, col=k$cluster)
+```
+
+Now we have 2 clusters. What if we want solid circles? We would use the point character or `pch` argument
+
+```{r}
+plot(x, col=k$cluster, pch=16)
+```
+
+Now we want to include the centers on our graph. Here we'll use the `points` function which will add points to our graph in the same format as the `plot` function, but with an additional argument `cex=` this will determine the size of the point shape that you defined in `pch=`, just like how we had to define it in the kmeans function.
+
+```{r}
+plot(x, col=k$cluster, pch=16)
+points(k$centers, col="blue", pch=15, cex=2)
+```
+
+> Q5. Run kmeans again, but cluster into 3 groups and plot the results
+
+```{r}
+k3 <- kmeans(x, centers=3, nstart =20)
+plot(x, col=k3$cluster, pch=16)
+points(k3$centers, col="blue", pch=15, cex=1)
+```
+
+The challenge here is that even if there aren't really the number of clusters you assigned in k, it will make that number of clusters anyway.
+
+ > How do you know how many iterations to call? 
+ 
+Until you stop getting different answers or get impatient. You won't know ahead of time how many iterations will be sufficient for your dataset.
+ 
+### Scree Plots
+
+Scree plots are used to determine your desired number of clusters. If this is a straight line, this means that there are no clear groupings. These measure the total sum of squares on the y-axis and the number of clusters on the x-axis. At a certain point the sum of squares doesn't drastically decrease with increasing number of clusters. This point is often called the "elbow" point and is usually the number of clusters you want to define the kmeans.
+
+# Hierarchical Clustering
+
+Has an advantage in that it can help visualize structure in your data rather than imposing a structure as you do with `kmeans`. 
+
+The main function in "R base" is called `hclust()` for hierarchical clustering. As always, its helpful to check the help file `?hclust`. This shows you the arguments that you can use in the clustering. 
+
+```{r}
+?hclust
+```
+
+ The first argument required is `d` which is a measure of dissimilarity that you must calculate, but can be based on a variety of things. Two optional arguments include the `method=` which can be "complete" which is the maximum, "single" which is the minimum, or "average". 
+ 
+```{r}
+#by default, if you make a distance matrix it will be based on Euclidian distance, but can also be differences between protein structure or other values you can think of
+dist(x)
+# there are other arguments you can add to hclust, but only the distance is required
+hc <- hclust(dist(x))
+plot(hc)
+# you can then make a specific cut line at a height you define
+
+
+```
+ 
+There are two different ways of going about this, "bottom up" or "top down". For "bottom up" you start as each point being its own cluster, then group them based on spacing in a stepwise manner until you only have a single cluster containing all points. The "top down" approach is similar, but in reverse order starting from a single cluster and parsing out to each point being its own cluster.
+
+The function to actually cut your group into your desired number of clusters based on height is called `cutree()`. This will take two arguments, first being the hierarchal cluster `hclust` and second being the height at which you want it to cut as represented by `h=`
+
+```{r}
+grps <- cutree(hc, h=8)
+grps
+```
+
+> Q6. Plot our hclust results in terms of our data colored by cluster membership
+
+```{r}
+plot(x,col=grps)
+```
+
+
+# Principal Component Analysis (PCA)
+
+Eiganvector = a principle component. Once you create these, you can get rid of your original axis and only look at the PCA one. It makes it easier to visualize your data. The PCA are measurements of variation (aka spread) of your data. With the highest of amount of variance (or differences) in PCA1 with decreasing variance in sequential order for PCA2, ect. These coordinates do a better job of describing the data than the original coordinates.
+
+> Question 1. How many rows and columns are in your new data frame named x? What R functions could you use to answer this questions?
+
+```{r}
+url <- "https://tinyurl.com/UK-foods"
+#make sure to assign the row names here because otherwise it may assume that the first column is more observations and not row names
+x <- read.csv(url, row.names=1)
+head(x)
+str(x)
+```
+So there are 17 rows (called objects) and 4 columns (called variables), but lets double check with less data using the `dim()` function
+
+```{r}
+dim(x)
+```
+
+>Q2. Which approach to solving the ‘row-names problem’ mentioned above do you prefer and why? Is one approach more robust than another under certain circumstances?
+
+Theoretically, you could use the below as commands
+```{r}
+# rownames(x) <- x[,1]
+# x <- x[,-1]
+```
+but this would overwrite the first column with the row names and each time you run it, it would overwrite yet another column until you have no data at all (which is bad, so don't do this).
+
+> Q3: Changing what optional argument in the below barplot() function results in the following plot (a stacked barplot)?
+
+```{r}
+# original barplot
+barplot(as.matrix(x), beside=T, col=rainbow(nrow(x)))
+# stacked barplot
+barplot(as.matrix(x), main="Stacked Barplot", beside=F, col=rainbow(nrow(x)))
+```
+So you would change the `beside=` argument to "FALSE"
+
+> Q5: Generating all pairwise plots may help somewhat. Can you make sense of the following code and resulting figure? What does it mean if a given point lies on the diagonal for a given plot?
+
+```{r}
+pairs(x, col=rainbow(10), pch=16)
+```
+The way that this is read is that for the top row England is on the y-axis, for the second row, wales is on the y-axis, third row is Scotland on the y-axis, and bottom row is N. Ireland on the y-axis. For the columns, the first column is England on the x-axis, the second column is Wales on the x-axis, Scotland is on the x-axis in the third column, and N.Ireland is the x-axis for the fourth column.
+
+If a given point lies on the diagonal, that means that there is equal amounts of that type of food consumption in both countries. 
+
+>Q6. What is the main differences between N. Ireland and the other countries of the UK in terms of this data-set?
+
+This can be difficult to visualize just looking at the graphs above, but the graphs containing N.Ireland as compared to the other 3 (fourth column and row), the points that are most off of the diagonal are those that are the most different between the two countries. For example, in N.Ireland vs Scotland, the dark blue datapoint is very different between the two.
+
+
+##PCA to the rescue
+help me make sense of this data...the main function for PCA in base R is called `prcomp()`. But weirdly, it wants the food names in the columns (aka observations) and the countries in the rows. We can do this by using the transpose function `t()`.
+
+```{r}
+Tx <- t(x)
+head(Tx)
+pca <- prcomp(t(x))
+summary(pca)
+```
+
+
+```{r}
+?pca
+# we can look at different ways 
+print(pca$x) 
+# now making a plot
+plot(pca$x[,1], pca$x[,2])
+```
+
+
+We can also add a line such that we can see where the zero lies using the `abline()` function. This adds a line as opposed to the `point()` function we used before
+```{r}
+plot(pca$x[,1], pca$x[,2])
+abline(h=0, v=0, col ="gray", lty =2)
+```
+> Q7. Complete the code below to generate a plot of PC1 vs PC2. The second line adds text labels over the data points.
+
+```{r}
+# Plot PC1 vs PC2
+plot(pca$x[,1], pca$x[,2], xlab="PC1", ylab="PC2", xlim=c(-270,500))
+text(pca$x[,1], pca$x[,2], colnames(x))
+```
+So here we are telling to plot PCA1 which is in the first column, and PCA2 which is the second column in the PCA plot
+
+
+> Q8. Customize your plot so that the colors of the country names match the colors in our UK and Ireland map and table at start of this document.
+
+```{r}
+# this colors the points
+plot(pca$x[,1], pca$x[,2], xlab="PC1", ylab="PC2", xlim=c(-270,500), col = c("orange", "red","blue","green"))
+#this is colors the text
+text(pca$x[,1], pca$x[,2], colnames(x), col = c("orange", "red","blue","green"))
+```
+In our data it's ordered:England, Wales, Scotland, then N. Ireland. We want England =yellow, Wales=red,Scotland=blue, and N.Ireland=green 
+
+##Loading Plots
+
+```{r}
+summary(pca)
+```
+Looking at the summary, the proportion of variance is represented as a decimal, so here 67% of the variance in the data is in PC1, while 29% is in PC2. Together, PC1 and PC2 explain 96.5% of the variance as indiciated by the "cumulative proportion" row.
+
+One of the main results that folks look for is called a "Score Plot" aka "PC Plot". 
+The rotation value includes how much your individual categories (in this case food), determins the overall variance of your data (as opposed to potential confounding variables).
+
+>Q9: Generate a similar ‘loadings plot’ for PC2. What two food groups feature prominantely and what does PC2 maninly tell us about?
+
+```{r}
+#PC1
+par(mar=c(10, 3, 0.35, 0))
+barplot( pca$rotation[,1], las=2 )
+```
+
+This plot shows the highest contributes to variation (PC1) with the largest bars observations/foods with high negative scores that push the other countries to the left side of the plot primarily being increased consumption of fresh fruit and alcoholic drinks in other countries. But also the negative values “push” N. Ireland to right positive side of the plot (though a bit less) are primarily potatoes and softdrinks.
+
+```{r}
+#PC2
+par(mar=c(10, 3, 0.35, 0))
+barplot( pca$rotation[,2], las=2 )
+```
+PC2 (the second highest level of variance) mainly shows us differences in fresh potatoes and soft drinks where positive values represent pushing values in N.Ireland and negative values "pushes" values in England consumption. For PC2 it seems that fresh potatoes are still consumed more highly in N.Ireland (highest contribute to the "push") and there are more soft drinks consumed in other countries (highest contribute to it's "push").
+
+
+
+
+

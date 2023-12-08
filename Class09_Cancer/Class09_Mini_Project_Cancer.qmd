@@ -1,0 +1,360 @@
+---
+title: "Class09_Cancer"
+author: "Krysten Jones (A10553682)"
+format: pdf
+---
+# Unsupervised Machine Learning Mini-Project Cancer
+
+Today we're analyzing data from Wisconsin Cancer Center. First of course we want to import our data. This can be done in a few different ways. For this, we will download the project into the project folder and download by clicking on it directly in the files section on the bottom right. Alternatively, once it is in your project folder you can use the following below command.
+
+```{r}
+fna.data <- "WisconsinCancer.csv"
+wisc.df <- read.csv(fna.data, row.names=1)
+head(wisc.df)
+```
+
+We are going to be using hierarchical clustering `hclust()` and k means clustering `kmeans()` as well as principal component analysis using the `prcomp()` function.
+
+looking at our data the diagnosis column has M= melignant B= benign. However, we want to see if we can figure out the diagnosis without being told (just from the data). So we will want to remove the diagnosis column from our dataset.
+
+```{r}
+wisc.data <- wisc.df[,-1]
+head(wisc.data)
+```
+
+see now we have the data frame without the diagnosis column, but what if we want it later? We can save it in another vector. If you don't use the `as.factor()` function, it will leave them as characters which will cause problems later. So if you do it without the vector will return each value in "" which is how you know it's a character. YOU DON'T WANT THIS
+
+```{r}
+diagnosis <- as.factor(wisc.df[,1])
+head(diagnosis)
+```
+Looks good. You still want to use head here cause the vector is LOOOONNNNGGG
+
+> Q1. How many observations are in this dataset?
+
+We can also examine our data using the `skimr` program
+```{r}
+skimr::skim(wisc.df)
+```
+
+looking at the original dataframe wisc.df according to skimr, there are 569 observations in the original dataset.
+
+> Q2. How many of the observations have a malignant diagnosis?
+
+```{r}
+sum(wisc.df$diagnosis == "M")
+```
+So there are 212 variables with "M" in the diagnosis column (so are malignant). Another way is to use the table function
+
+```{r}
+table(wisc.df$diagnosis)
+```
+
+
+> Q3. How many variables/features in the data are suffixed with _mean?
+
+```{r}
+length(grep("_mean$", colnames(wisc.df), value = T))
+```
+If you want to only know the location in the vector, then you can set the value argument above to false. With it being true, it will return the names. if you want to know how many values it is, you'd wrap it in the length command. 
+
+There are 10 variables in the data suffixed with "-mean"
+
+> Question 4
+
+ Lets see if we need to scale it? Just by looking at the data, we can see that the area column has much higher values than some of the other columns, so we will need to scale it.
+
+```{r}
+head(wisc.data)
+```
+
+If you want to look at the means ans standard deviation, to double check us, this will help give a better idea, but gives a large return
+```{r}
+colMeans(wisc.data)
+# remember that the 2 hear means use the columns
+apply(wisc.data,2,sd)
+```
+> Q4. From your results, what proportion of the original variance is captured by the first principal components (PC1)?
+
+Now we want to take a look at our principal components using the `prcomp()` command
+```{r}
+wisc.pr <- prcomp(wisc.data, scale = TRUE)
+summary(wisc.pr)
+```
+
+So PC1 contains 44.27% of the variance in our dataset as determined by the "proportion of variance" row in the PC1 column
+
+> Q5. How many principal components (PCs) are required to describe at least 70% of the original variance in the data?
+
+Three PC's (PC1, PC2, and PC3) are required to describe at least 70% of the original variance in the data as based on the Cumulative proportion row 72.636%. 
+
+You can also use a command to check this (but he types way faster than I do so I missed it), but here's another version
+
+```{r}
+# Extract variance explained
+variance <- wisc.pr$sdev^2
+
+# Calculate cumulative variance 
+cumvar <- cumsum(variance/sum(variance))
+
+# Get index where cumulative variance exceeds 0.7 
+which(cumvar >= 0.7)[1]
+```
+
+> Q6. How many principal components (PCs) are required to describe at least 90% of the original variance in the data?
+
+Seven PC's (PC1-7) are requried to describe at least 90% of the original variance in the data as based on the Cumulative proportion row 91.01%.
+
+Using code.
+
+```{r}
+which(cumvar >= 0.9)[1]
+```
+
+
+> Q7. What stands out to you about this plot? Is it easy or difficult to understand? Why?
+
+Now lets plot the data. First using base R. If you don't factor diagnosis previously, you will need to call the `as.factor()` function here.
+```{r}
+plot(wisc.pr$x[,1], wisc.pr$x[,2], col = as.factor(diagnosis), 
+     xlab = "PC1", ylab = "PC2")
+```
+How about using a biplot?
+
+```{r}
+biplot(wisc.pr)
+```
+Wow that's a mess. It is definitely difficult to understand
+
+>Q8. Generate a similar plot for principal components 1 and 3. What do you notice about these plots?
+
+```{r}
+plot(wisc.pr$x[,1], wisc.pr$x[,3], col = diagnosis, 
+     xlab = "PC1", ylab = "PC3")
+```
+
+This plot looks very similar to the plot of PC1 and PC2, but there is slightly more overlap between the malignant and benign groups.
+
+Using ggplot, everything needs to be in a dataframe format or it won't work. So first we need to convert everything to a dataframeme.
+
+```{r}
+df <- as.data.frame(wisc.pr$x)
+df$diagnosis <- diagnosis
+
+# Load the ggplot2 package
+library(ggplot2)
+
+# Make a scatter plot colored by diagnosis
+ggplot(df) + 
+  aes(PC1, PC2, col=df$diagnosis) + 
+  geom_point()
+```
+
+## Variance Explained
+
+
+```{r}
+pr.var <- wisc.pr$sdev^2
+head(pr.var)
+# Variance explained by each principal component: pve
+pve <- pr.var / sum(pr.var)
+
+# Plot variance explained for each principal component
+plot(pve, xlab = "Principal Component", 
+     ylab = "Proportion of Variance Explained", 
+     ylim = c(0, 1), type = "o")
+```
+
+
+```{r}
+# Alternative scree plot of the same data, note data driven y-axis
+barplot(pve, ylab = "Precent of Variance Explained",
+     names.arg=paste0("PC",1:length(pve)), las=2, axes = FALSE)
+axis(2, at=pve, labels=round(pve,2)*100 )
+```
+
+This has a data driven axis, that will have the tick marks where the data points are. This can help figure out where the "elbow" is (based on where the tickmarks end)
+
+
+### factoextra
+
+There is another package known as `factoextra` which can give clearer evidence for the 
+```{r}
+## ggplot based graph
+#install.packages("factoextra")
+library(factoextra)
+fviz_eig(wisc.pr, addlabels = TRUE)
+```
+
+> Q9. For the first principal component, what is the component of the loading vector (i.e. wisc.pr$rotation[,1]) for the feature concave.points_mean? This tells us how much this original feature contributes to the first PC.
+
+A loading vector is how which variables contribute most to the variance in the PCA. This is like how we had different foods contribute to differentiating between being Irish or British previously. So which of these features in the dataset are contributing most to the diagnosis of benign vs malignant? Concave.points_mean is one of the column names in our dataset. 
+
+## Influence = rotation = loading = weight (they all mean the same thing)
+
+```{r}
+head(wisc.data)
+# so the 1 here below is designating PC1
+wisc.pr$rotation[,1]
+# then look for the concave.points_mean
+```
+
+Alternatively, you can specifically search for the name
+```{r}
+wisc.pr$rotation["concave.points_mean", "PC1"]
+```
+
+## Hierarchical Clustering
+
+You do hierarchical clustering on original data, not on PCA.
+
+First let's scale our data and create a distribution (we'll do Euclidian distance). Then do hierarchical clustering using the complete method
+
+```{r}
+data.scaled <- scale(wisc.data)
+data.dist <- dist(data.scaled)
+wisc.hclust <- hclust(data.dist, "complete")
+```
+
+> Q10. Using the plot() and abline() functions, what is the height at which the clustering model has 4 clusters?
+
+Remember that abline can act as the cutree function and put a line across the hierarchical clusters
+
+```{r}
+plot(wisc.hclust)
+abline(h=19, col="red", lty=2)
+```
+The cluster has 4 groups at a height of about 19-20.
+
+## Selecting Number of Clusters
+
+```{r}
+wisc.hclust.clusters <- cutree(wisc.hclust, k=4)
+table(wisc.hclust.clusters, diagnosis)
+```
+Here we picked four clusters and see that cluster 1 largely corresponds to malignant cells (with diagnosis values of 1) whilst cluster 3 largely corresponds to benign cells (with diagnosis values of 0).
+
+
+> Q12. Which method gives your favorite results for the same data.dist dataset? Explain your reasoning.
+
+```{r}
+plot(hclust(data.dist, "complete"))
+plot(hclust(data.dist, "single"))
+plot(hclust(data.dist, "average"))
+```
+I prefer the complete method as there is a larger vertical difference between the groups (especially with fewer clusters) so they're easier to distinguish. Average isn't bad, but single looks very difficult to distinguish.
+
+# Combining Methods
+
+## Clustering in PC space
+I will pick 3 PCs here for further analysis but you can use more (e.g. include 90% variance).
+```{r}
+d.pc <- dist(wisc.pr$x[,1:3])
+wisc.pr.hc <- hclust(d.pc, method = "ward.D2")
+plot(wisc.pr.hc)
+```
+This seems much easier to read.
+
+Now lets try with only 2 groups, cut the tree into two clusters and save it as a "grps" variable
+```{r}
+grps <- cutree(wisc.pr.hc, k=2)
+table(grps)
+table(diagnosis)
+table(diagnosis, grps)
+```
+
+Lets make some plots
+```{r}
+# color by groups
+plot(wisc.pr$x[,1:2], col=grps)
+# color by diagnosis
+plot(wisc.pr$x[,1:2], col=diagnosis)
+# this is just another way of doing the first one (less pretty, but will work)
+plot(wisc.pr$x[,1], wisc.pr$x[,2], col = grps)
+```
+
+Note the color swap here as the hclust cluster 1 is mostly “M” and cluster 2 is mostly “B” as we saw from the results of calling table(grps, diagnosis). To match things up we can turn our groups into a factor and reorder the levels so cluster 2 comes first and thus gets the first color (black) and cluster 1 gets the second color (red).
+
+```{r}
+# so we're going to change the factor assignment, first we need to define the groups
+g <- as.factor(grps)
+levels(g)
+# then reverse the default (which is B= 1, and M =2)
+g <- relevel(g,2)
+levels(g)
+# Plot using our re-ordered factor 
+plot(wisc.pr$x[,1:2], col=g)
+```
+You cannot just assign colors manually as it will just repeat the color vector "red, black, red, black" ect.
+
+### Making 3D graphs with `rgl`
+
+```{r}
+library(rgl)
+plot3d(wisc.pr$x[,1:3], xlab="PC 1", ylab="PC 2", zlab="PC 3", cex=1.5, size=1, type="s", col=grps)
+# the below code is just to put it in the report (will only work in html format)
+#rglwidget(width = 400, height = 400)
+```
+
+
+```{r}
+# inputs for hclust must be a distance matrix
+wisc.pr.hclust <- hclust(dist(wisc.pr$x[,1:7]), method="ward.D2")
+wisc.pr.hclust.clusters <- cutree(wisc.pr.hclust, k=2)
+```
+
+> Q13. How well does the newly created model with four clusters separate out the two diagnoses?
+
+```{r}
+# this is with K = 2 and 7 PC
+wisc.pr.hclust.K2.clusters <- cutree(wisc.pr.hclust, k=2)
+table(wisc.pr.hclust.K2.clusters, diagnosis)
+# this is with K=2 and 3 PC
+wisc.pr.hc.K2.clust <- cutree(wisc.pr.hc, k=2)
+table(wisc.pr.hc.K2.clust, diagnosis)
+# this is with 7 PC with K=4
+wisc.pr.hclust.clusters <- cutree(wisc.pr.hclust, k=4)
+table(wisc.pr.hclust.clusters, diagnosis)
+# recall that our 3 PC one was stored as wisc.pr.hc, for K=4
+wisc.pr.hc.clust <- cutree(wisc.pr.hc, k=4)
+table(wisc.pr.hc.clust, diagnosis)
+```
+With only 2 clusters, there is not much of a difference between looking at a 90% variance cut off (PC1:7) compared to a 70% (PC1:3) cut off. However, using 4 clusters, there does appear to be a large difference between clusters especially cluster 1 and 4 between the two groups. Using 4 clusters, it's a bit easier to determine which cluster is likely to be malignant vs benign as there is larger variation between the benign and malignant groups. So if you have more groups, how do you assign the other clusters when you only have 2 known groups. So for the 7PC and K=4, group 1 is probably malignant while cluster 3 would say be inconclusive. Cluster 4 is likely benign. 
+
+
+>Q14. How well do the hierarchical clustering models you created in previous sections (i.e. before PCA) do in terms of separating the diagnoses? Again, use the table() function to compare the output of each model (wisc.km$cluster and wisc.hclust.clusters) with the vector containing the actual diagnoses.
+
+```{r}
+# doing K means
+wisc.km <- kmeans(wisc.data, 4, nstart = 10, iter.max = 10)
+table(wisc.km$cluster, diagnosis)
+# looking at hierarchical clustering
+table(wisc.hclust.clusters, diagnosis)
+```
+With the H clusters you're getting more potential false negatives while with k means you have more potential false positives. So the k means I think would be better because then you know if you need to follow up if you might have cancer.
+
+```{r}
+#url <- "new_samples.csv"
+url <- "https://tinyurl.com/new-samples-CSV"
+new <- read.csv(url)
+npc <- predict(wisc.pr, newdata=new)
+npc
+plot(wisc.pr$x[,1:2], col=g)
+points(npc[,1], npc[,2], col="blue", pch=16, cex=3)
+text(npc[,1], npc[,2], c(1,2), col="white")
+```
+
+>Q16. Which of these new patients should we prioritize for follow up based on your results?
+
+You would test group 2 again for follow up because I would want to ensure that they did in fact have cancer while I probably wouldn't follow up for the benign as the normal ones seem to cluster tightly and it isn't on the edge. 
+
+
+
+
+
+
+
+
+
+
+

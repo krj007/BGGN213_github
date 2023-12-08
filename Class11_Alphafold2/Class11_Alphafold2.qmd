@@ -1,0 +1,130 @@
+---
+title: "Class11_Alphafold2"
+author: "Krysten Jones (A10553682)"
+format: pdf
+---
+# The EBI AlphaFold database
+Using alphafold https://alphafold.ebi.ac.uk/ you can search for your protein sequence by just entering it into the search bar. It is based on the Uniprot database
+
+For the 3D viewer (which is molstar) values >70 is considered good, and below is bad. Areas of low confidence might be "intrinsically disordered regions", but this is circumstantial evidence and may not be correct.
+
+Predicted aligned error (PAE): dark green is good, light green is not so much. This is a distance matrix where the closer to the center line, the closer those two aminoacids are in sequence proximity. Areas that aren't close to the line, but are highly associated means that they are close in proximity based on folding.
+
+# Generating Your Own Structure Predictions
+
+https://github.com/sokrypton/ColabFold
+Scroll down, use the mmseq2 notebook. Not quite as sensitive as HMMER, but is faster. 
+Open the notebook, click connect on the top right to connect the a google GPU node.
+2) Paste in your query sequence (no spaces)
+  if you want to do two chains put ":" between the two sequences. So for us which is a homodimer, post it again.
+2) Change other aspects of interest
+- template mode = if you need a protein template, usually you can leave it off (will take a lot longer to turn on)
+-num_recycles:the higher this number, the longer it will take to run and the more accurate (kinda like iterations)
+3) Click on "Runtime" at the top and then "run all"
+4) download your file and move it to your project folder
+
+# Using Molstar
+1) Upload your pdb model using molstar 
+- left column, upload file
+2) upload all of them
+3) select the different chains and superimpose
+4) go to the right side bar click "components" --> "polymer" --> "atom property" --> "uncertainty/disorder"
+
+# Looking at it in R
+here we post process and inspect our modeling results from AlphaFold2(AF)
+My results from AF live in the folder/directory `HIVPR_Dimer_23119`
+
+```{r}
+results_dir <- "HIVPR_Dimer_23119"
+# pattern = has this in the name
+# full.names = return the complete path
+pdb_files <- list.files(results_dir, pattern =".pdb", full.names = TRUE)
+```
+
+First we need to align and superimpose these PDB files using `pdbaln()` function
+
+```{r}
+library(bio3d)
+pdbs <- pdbaln(pdb_files, fit = TRUE, exefile = "msa")
+```
+
+## The RMSD matrix
+
+A common measure of structural dissimilarity called root mean square distance (RMSD). The smaller it is, the closer two things are together
+
+```{r}
+library(pheatmap)
+rd <- rmsd(pdbs)
+# these just change the column and row names to m1-5 to take up less space.
+rownames(rd) <- paste0("m", 1:5)
+colnames(rd) <- paste0("m", 1:5)
+rd
+pheatmap(rd)
+```
+The dendrogram shows which ones are closer together (so m1 and m2 are close to each other), then next m3, then m4 and m5 are close to each other.
+
+Lets view these in molstar again, here we want the fitted coordinates
+
+```{r}
+# what this does is superimpose the parts that are exactly identical you can now look at this in molstar
+xyz <- pdbfit(pdbs, outpath = "fitted")
+```
+
+A full atom based fitting or superimposition did not work very well because we have multiple chains that are in different conformations.
+
+I want to focus the superimposition on the most invariant part (the rigid "core" if you will)
+
+```{r}
+library(bio3d)
+# this will go through and sequentially discards parts that are the most variable
+core <- core.find(pdbs)
+core.inds <-core
+# this will make a new direcetry called "corefit"
+xyz <- pdbfit(pdbs, inds = core.inds, outpath="corefit")
+```
+
+How do you know which model is the best model? You would look at the PAE (predicted aligned error) scores. Again, lower numbers are better.
+
+These are contained in the JSON files. Lets first list all the JSON files
+```{r}
+pae_files <- list.files(results_dir, pattern = "0.json", full.names = TRUE)
+pae_files
+```
+
+Just like before, lets read in our files (this is why you need the file path)
+
+```{r}
+library(jsonlite)
+pae1 <- read_json(pae_files[1], simplifyVector = TRUE)
+attributes(pae1)
+pae1$max_pae
+```
+
+Similarly we can do the 5th one
+
+```{r}
+pae5 <- read_json(pae_files[5], simplifyVector = TRUE)
+attributes(pae5)
+pae5$max_pae
+```
+You can see that the max pae for model 5 is almost twice that of model 1. So model 1 is the better model
+
+Visualizing is another good way to look at this. You can see there is much more blue in model 1 than in model 5. For model 5, it means that there is high error in the second chain (which starts around residue 90) which is red, and low error in the first chain (which is blue).
+```{r}
+plot.dmat(pae5$pae)
+plot.dmat(pae1$pae)
+        
+```
+
+# main points
+We can run Alphafold2 to predict a structure of a protein
+
+
+
+
+
+
+
+
+
+

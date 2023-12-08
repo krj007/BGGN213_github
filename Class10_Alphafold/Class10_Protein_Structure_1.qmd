@@ -1,0 +1,245 @@
+---
+title: "Class10_Structure"
+author: "Krysten Jones (A10553682)"
+format: pdf
+---
+
+We will start by using the protein data bank (PDB) website located at https://www.rcsb.org/ and “Analyze” > “PDB Statistics” > “by Experimental Method and Molecular Type”. 
+
+
+> Q1: What percentage of structures in the PDB are solved by X-Ray and Electron Microscopy.
+
+X-Ray Structures: 84.8%
+
+Electron Microscopy Structures: 8.33%
+
+> Q2: What proportion of structures in the PDB are protein?
+
+There are a total of 183,201 protein only structures in the database out of a total of 211,377 which is about 86.7%
+
+```{r}
+183201/211377
+```
+
+
+> Q3: Type HIV in the PDB website search box on the home page and determine how many HIV-1 protease structures are in the current PDB?
+
+Searching for HIV in the PDB website returns 7,280 protein structures. When a protease subquery is added, 1,603 protein structures are found.
+
+## Using Mol*
+
+Mol* is an online web-based molecular viewer that can be found at  https://molstar.org/viewer/. 
+Replace the default protein name next to the "PDB ID" box on the left with your protein of interest then click the `apply` button below.
+For us, this is 1hsg
+
+You can turn off the Ligand and Water options by clicking the eye next to the name to improve visualization of the protein polymer. Turn off water, but leave ligand for now then hide the "stat-tree" for now by clicking on it's associated icon on the left to improve space.
+
+Next change the display representation of the Ligand to Spacefill (a.k.a VdW spheres) using the controls on the bottom right.
+
+Ligand -> "..." --> Add Representation -> spacefill -> "..."
+
+Now edit the polymer itself 
+
+Polymer” -> “Set Coloring” -> “Residue Property” -> “Secondary Structure”
+
+Now take an image by clicking the shutter button on the middle right and download it. The image will be "1HSG.png" by default.
+
+Click on the ligand and it will zoom in and display a sequence. Find Asp 25 (D25) and click on it, it should highlight while your mouse is over it.
+
+To simplify, on the right panel, hide the ligand view by clicking the eye button.
+
+Click on the arrow button on the mid right panel (below the camera shutter button) then select Asp 25 (D25) from the sequence at the top. This will highlight your sequence of interest.
+
+ cube icon (blue box in below figure) and from the drop-down menu that appears select Representation Spacefill or Ball & Stick (whatever you prefer), then click +Create Component.
+
+If you mess up, you can go to the bottom right panel and delete or alter your custom selection.
+
+Download another image
+
+> Q4: Water molecules normally have 3 atoms. Why do we see just one atom per water molecule in this structure?
+
+It is likely just showing us the larger oxygen atom (ususlly placed at the center of the H2O molecule) to allow for better visualization (otherwise water would be in the way).
+
+
+> Q5: There is a critical “conserved” water molecule in the binding site. Can you identify this water molecule? What residue number does this water molecule have?
+
+Water molecule 308 is at the center of the protein near where the ligand is bound and is a critical "conserved" water molecule in the binding site. Another drug that mimicked its function was found to be 3000x more effective.
+
+
+> Q6: Generate and save a figure clearly showing the two distinct chains of HIV-protease along with the ligand. You might also consider showing the catalytic residues ASP 25 in each chain and the critical water (we recommend “Ball & Stick” for these side-chains). Add this figure to your Quarto document.
+
+### 1HSG
+
+# Introduction to Bio 3D in R
+
+First as always, load the package and file of interest
+```{r}
+library(bio3d)
+pdb <- read.pdb("1hsg")
+pdb
+```
+
+> Q7: How many amino acid residues are there in this pdb object? 
+
+198
+
+> Q8: Name one of the two non-protein residues? 
+
+HOH
+
+> Q9: How many protein chains are in this structure? 
+
+2
+
+Lets look at some attributes, we can call a specific section like atom as well
+```{r}
+attributes(pdb)
+head(pdb$atom)
+```
+
+Lets try a different file
+```{r}
+adk <- read.pdb("6s36")
+adk
+```
+
+Normal mode analysis (NMA) is a structural bioinformatics method to predict protein flexibility and potential functional motions (a.k.a. conformational changes).
+
+```{r}
+m <- nma(adk)
+plot(m)
+mktrj(m, file="adk_m7.pdb")
+```
+
+load the resulting “adk_m7.pdb” PDB into Mol* with the “Open Files” option on the right side control panel. Once loaded click the “play” button to see a movie (see image below)
+
+# Comparative Structural Analysis (11.08.2023)
+
+Perform principal component analysis (PCA) on the complete collection of Adenylate kinase structures in the protein data-bank (PDB).
+
+Starting from only one Adk PDB identifier (PDB ID: 1AKE) we will search the entire PDB for related structures using BLAST, fetch, align and superpose the identified structures, perform PCA and finally calculate the normal modes of each individual structure in order to probe for potential differences in structural flexibility
+
+If you haven't already, install the following packages in your consul using the following commands
+install.packages("bio3d")
+install.packages("devtools")
+install.packages("BiocManager")
+
+BiocManager::install("msa")
+devtools::install_bitbucket("Grantlab/bio3d-view")
+
+>Q10. Which of the packages above is found only on BioConductor and not CRAN?
+
+ msa
+
+>Q11. Which of the above packages is not found on BioConductor or CRAN?:
+
+Grantlab/bio3d-view
+
+>Q12. True or False? Functions from the devtools package can be used to install packages from GitHub and BitBucket? 
+
+TRUE
+
+Get structures of interest
+```{r}
+library(bio3d)
+aa <- get.seq("1ake_A")
+aa
+```
+
+> Q13. How many amino acids are in this sequence, i.e. how long is this sequence?
+
+214
+
+I want to now search for all related structures in the database
+
+```{r}
+#| eval: false 
+# Blast or hmmer search 
+b <- blast.pdb(aa)
+# Plot a summary of search results
+hits <- plot(b)
+# List out some 'top hits'
+head(hits$pdb.id)
+# save this so we don't need to run blast every time
+save(hits, b, file = "blast_results.Rds")
+```
+
+Side note: lets see if our results saved thus far so we don't need to run blast each time (or when we render)
+
+```{r}
+load("blast_results.Rds")
+hits
+```
+
+
+```{r}
+# Download releated PDB files
+files <- get.pdb(hits$pdb.id, path="pdbs", split=TRUE, gzip=TRUE)
+```
+
+```{r}
+# Align releated PDBs
+pdbs <- pdbaln(files, fit = TRUE, exefile="msa")
+# Vector containing PDB codes for figure axis
+ids <- basename.pdb(pdbs$id)
+
+# Draw schematic alignment
+#plot(pdbs, labels=ids)
+# this is giving me a figure margins too large error when trying to render
+```
+
+The function pdb.annotate() provides a convenient way of annotating the PDB files we have collected. Below we use the function to annotate each structure to its source species. This will come in handy when annotating plots later on
+
+```{r}
+anno <- pdb.annotate(ids)
+unique(anno$source)
+anno
+```
+
+PCA
+```{r}
+# Perform PCA
+pc.xray <- pca(pdbs)
+plot(pc.xray)
+plot(pc.xray[1,2])
+
+# Calculate RMSD
+rd <- rmsd(pdbs)
+
+# Structure-based clustering
+hc.rd <- hclust(dist(rd))
+grps.rd <- cutree(hc.rd, k=3)
+
+plot(pc.xray, 1:2, col="grey50", bg=grps.rd, pch=21, cex=1)
+```
+
+Figure 10: Projection of Adenylate kinase X-ray structures. Each dot represents one PDB structure.
+
+The plot shows a conformer plot – a low-dimensional representation of the conformational variability within the ensemble of PDB structures. The plot is obtained by projecting the individual structures onto two selected PCs (e.g. PC-1 and PC-2). These projections display the inter-conformer relationship in terms of the conformational differences described by the selected PCs.
+
+```{r}
+mktrj(pc.xray, file = "pca_results.pdb")
+```
+
+
+Plotting with ggplot
+```{r}
+#Plotting results with ggplot2
+library(ggplot2)
+library(ggrepel)
+
+df <- data.frame(PC1=pc.xray$z[,1], 
+                 PC2=pc.xray$z[,2], 
+                 col=as.factor(grps.rd),
+                 ids=ids)
+
+p <- ggplot(df) + 
+  aes(PC1, PC2, col=col, label=ids) +
+  geom_point(size=2) +
+  geom_text_repel(max.overlaps = 20) +
+  theme(legend.position = "none")
+p
+```
+
+
+

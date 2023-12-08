@@ -1,0 +1,22 @@
+---
+title: "Class18_Sequence_Alignment"
+author: "Krysten Jones (A10553682)"
+format: pdf
+---
+
+# now we are going to use TXimport to alter the files we alligned using sratools in the terminal. The relevant files need to be copied to the folder of interest.
+
+```{r}
+folders <- dir(pattern="SRR21568*")
+samples <- sub("_quant", "", folders)
+files <- file.path( folders, "abundance.h5" )
+names(files) <- samples
+
+txi.kallisto <- tximport(files, type = "kallisto", txOut = TRUE)
+```
+
+
+
+
+
+

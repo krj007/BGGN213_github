@@ -1,0 +1,511 @@
+---
+title: "Class13_DEseq2_RNAseq"
+author: "Krysten Jones (A10553682)"
+format: html
+---
+
+# Analyzing Effects of Dexamethasone on Asthma
+
+As always, we first need to install our packages of interest. We'll be using DEseq2 which is hosted on bioconductor. So first we need to install BiocManager if we haven't already using `install.packages("BiocManager")` in the consul. Then use BiocManager to install DEseq2 with the command `BiocManager::install("DESeq2")` once again in the consul. As always, don't install anything in the quarto document. If it asks you to update some other packages, tell it to intall none (n). If you change your mind later, you can reinstall it with the argument `force=TRUE`. 
+
+```{r}
+#| message: false
+#| warning: false
+#load your package
+library('DESeq2')
+library(ggplot2)
+```
+
+You'll see a lot of things that are masked, this means that the old function is being overwritten with a new one. If you wanted to use the old version, you will have to call the package using `package:package_name:command_name` for example `package:MatrixGenerics:rowMedians`
+
+When you render your report it will include all of these masks by default. If you don't want that you can turn it off. To edit a whole code chunk use `#|` before a command so in this case `#|message:false`. You can do the same with the warning messages if you'd like to turn it off you can use `#| warning: false`. You can also do other things including telling it to not run the code chunk at all using `#| eval: false`.
+
+## Importing Data
+
+Download the files from online and move them into your project folder. Then call them using the below commands.
+
+```{r}
+counts <- read.csv("airway_scaledcounts.csv", row.names=1)
+metadata <-  read.csv("airway_metadata.csv")
+```
+
+lets look at the structure now
+
+```{r}
+head(counts)
+head(metadata)
+```
+
+> Q1: How many genes are in this dataset?
+
+```{r}
+nrow(counts)
+```
+
+38694
+
+> Q2: How many ‘control’ cell lines do we have? 
+
+```{r}
+sum(metadata$dex == "control")
+```
+4
+
+DO NOT DO THIS IN YOUR ACTUAL RNASEQ ANALYSIS
+
+First we need to compare the actual data to the metadata to compare the controls to the treatment. To do this I will
+1) Identify and extract the "control" columns
+2) Calculate the mean values for control and treatment groups columns
+3) Compare mean of the control and treatment groups
+
+Step 1: identifying and extracting the "control" columns
+```{r}
+# vector for controls
+control.inds <-metadata$dex == "control"
+# ask for the specific row indexes of metadata control.inds
+metadata[control.inds,]
+head(counts[,control.inds])
+```
+This now gives you only the control columns (not the treated)
+
+You can now get the means across rows
+```{r}
+control.means <- rowMeans(counts[,control.inds])
+head(control.means)
+```
+
+lets look at these genes and see if for these few that the values make sense. First for the 005 one, you'll notice that there is 0, if you look online this will also be not annotated so this is correct. Now looking at 938, you'll notice that we get 0.75, this is an odd value and you might want to make note for this later.
+
+> Q3. How would you make the above code in either approach more robust? Is there a function that could help here? 
+
+The rowMeans function could help instead of using the rowSums and dividing by 4.
+```{r}
+control.mean <- rowMeans(counts[,metadata$dex =="control"])
+head(control.mean)
+```
+
+> Q4. Follow the same procedure for the treated samples (i.e. calculate the mean per gene across drug treated samples and assign to a labeled vector called treated.mean)
+
+```{r}
+treated.mean <- rowMeans(counts[,metadata$dex =="treated"])
+head(treated.mean)
+```
+
+> Q5 (a). Create a scatter plot showing the mean of the treated samples against the mean of the control samples. Your plot should look something like the following.
+
+```{r}
+meancounts <- data.frame(control.mean, treated.mean)
+plot(meancounts)
+```
+
+>Q5 (b).You could also use the ggplot2 package to make this figure producing the plot below. What geom_?() function would you use for this plot?
+
+you would use `geom_point()`
+
+Now we can combine these to a single data frame so we can look at it as a graph
+```{r}
+ggplot(meancounts, aes(control.mean, treated.mean)) +
+  geom_point()
+```
+
+You'll notice that the points are clustered at the bottom left, so the first thing we're going want to do a log transformation of these means.
+
+> Q6. Try plotting both axes on a log scale. What is the argument to plot() that allows you to do this?
+
+`log = "xy"`
+
+Lets see if we can do that in base R
+```{r}
+# this will transform both the x and y axes
+plot(meancounts, log ="xy")
+```
+
+It looks better, but we're still seeing a high spread at the bottom left and less at the top right. But there are a lot of points we can now start to visualize.
+
+```{r}
+#Treated/control
+log2(10/10)
+log2(20/10)
+```
+
+Lets add a log2 fold change column to the dataframe. You can use this in base R by just assignment (don't need to use mutate from the dplyr package, but you could).
+
+```{r}
+meancounts$log2fc <- log2(meancounts[,"treated.mean"]/meancounts[,"control.mean"])
+head(meancounts)
+```
+Since we put the treatment on top, that means that the negative sign means that the gene is less expressed in the treatment compared to the control. If it's positive, then there is higher epression in the treated than the control.
+
+You'll notice that even in just the head we have a "NaN" and "-Inf" which are not numbers that we can work with so we'll have to do something about it. We can't say anything about these genes anyway so we're just going to have to exclude them.
+
+```{r}
+# What values in the first two cols are zero
+head(meancounts[, 1:2] == 0)
+# ok that looks correct, now we want to exclude ALL rows that have a TRUE in them so we're going to first quantify which ones have TRUE. So if there is a single True it will give a value of 1 and if it has a TRUE for both it will give a value of 2
+head(rowSums(meancounts[,1:2] == 0))
+# also looks correct, now lets assign it to a vector
+```
+
+```{r}
+to.rm.inds <-rowSums(meancounts[,1:2] == 0)
+# you can also try to do it with adding a "> 0" at the end
+#to.rm.inds <-rowSums(meancounts[,1:2] == 0) >0
+# this second way is safer 
+
+# lets double check, this should give us the opposite of what we had before
+head(meancounts[to.rm.inds,])
+#we want the opposite values so we can use the !
+head(!to.rm.inds)
+# now we have it matching what we want so we can assign it to a variable
+my.counts <- meancounts[!to.rm.inds,]
+# how many rows do we have left?
+nrow(my.counts)
+#21817
+```
+
+```{r}
+# this is an example from the document
+zero.vals <- which(meancounts[,1:2]==0, arr.ind=TRUE)
+
+to.rm <- unique(zero.vals[,1])
+mycounts <- meancounts[-to.rm,]
+head(mycounts)
+```
+
+> Q7. What is the purpose of the arr.ind argument in the which() function call above? Why would we then take the first column of the output and need to call the unique() function?
+
+Lets look at what happens if we set it to false
+```{r}
+#| eval: false
+zero.vals <- which(meancounts[,1:2]==0, arr.ind=FALSE)
+
+to.rm <- unique(zero.vals[,1])
+mycounts <- meancounts[-to.rm,]
+head(mycounts)
+```
+It throws an error, lets try if we only run the first line of code
+
+```{r}
+# this just gives you the counts in the row
+zero.vals <- which(meancounts[,1:2]==0, arr.ind=FALSE)
+head(zero.vals)
+```
+
+```{r}
+#This will keep the names of the genes, but also puts them in ascending order where greater values come later
+zero.vals <- which(meancounts[,1:2]==0, arr.ind=TRUE)
+head(zero.vals)
+```
+You'll notice that in our call below, we specify that we want column 1 from the zero values subset of the data frame and call the unique function. Lets see what the first column is. The first row that we are doing is the location of the gene name (so the first one is row 2 and column 1 from our data frame)
+
+```{r}
+head(zero.vals[,1])
+```
+
+So What about removing them from our data. We need to call unique function because when we see the data frame `zero.vals` it will have listed the same gene twice if there was a 0 in the first column (control.mean) and again if there was a 0 in the second column (treatment.mean). Since we only want each gene to be listed ONCE, we have to ask it to be unique from the zero.values dataframe (If I'm being honest I still don't super get this)
+```{r}
+to.rm <- unique(zero.vals[,1])
+mycounts <- meancounts[-to.rm,]
+head(mycounts)
+```
+
+
+> Q8. Using the up.ind vector above can you determine how many up regulated genes we have at the greater than 2 fc level? 
+
+```{r}
+up.ind <- mycounts$log2fc > 2
+count(up.ind)
+```
+250
+
+> Q9. Using the down.ind vector above can you determine how many down regulated genes we have at the greater than 2 fc level? 
+
+```{r}
+down.ind <- mycounts$log2fc < (-2)
+count(down.ind)
+```
+367
+
+> Q10. Do you trust these results? Why or why not?
+
+We do not trust these results because there is no significance value given (p-value).
+
+# Using DEseq2
+
+## PCA
+
+First we'll want to use PCA to flatten our data and make it more managable from all of the dimensions created by each individual gene.
+
+Using `DESeqDataSetFromMatrix` will give us integers from previous counts. We can use this function to make a matrix that we can use for DESeq2
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData=counts, 
+                              colData=metadata, 
+                              design=~dex)
+dds
+```
+
+First we'll do some flattening of dimensions in the form of PCA. Remember to do PCA's we need to have variance. 
+
+```{r}
+# this is using base R,
+vsd <- vst(dds, blind = FALSE)
+plotPCA(vsd, intgroup = c("dex"))
+# we want to add the returnData argument. This is necessary if we want to use ggplot2
+pcaData <- plotPCA(vsd, intgroup=c("dex"), returnData=TRUE)
+# look at the data returned from the PCA
+head(pcaData)
+# here's where we define the variance for PCA
+# Calculate percent variance per PC for the plot axis labels
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+# so first we are calling percentVar from our pcaData dataframe thne we are using the attr command which is an attribute function, multiplying by 100 and storing the rounded vector now as the percentVar which happens to be the same name as the column
+```
+The attribute function is used to retrieve the value of a specific attribute associated with an object. So in this case we want it to retrieve the values from the percentVar column
+
+
+Now that we have the data from the PCA command, and the variance we can now use ggplot2 to plot the data.
+```{r}
+ggplot(pcaData) +
+  aes(x = PC1, y = PC2, color = dex) +
+  geom_point(size =3) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  coord_fixed() +
+  theme_bw()
+```
+
+## DESeq Analysis
+
+First we'll want to call DESeq on our dataframe (the matrix we input later)
+```{r}
+# calling the DESeq funciton on our original dataframe and overwriting the original name after making it a DESeq object
+dds <- DESeq(dds)
+# now lets look at what the results of the DESeq funciton makes
+res <- results(dds)
+head(res)
+```
+lots of interesting stuff here, but as always we need to change it to a dataframe to be able to manipulate it
+
+```{r}
+res <- as.data.frame(res)
+# now we can use dataframe functions like summary
+summary(res)
+```
+
+By default the argument alpha is set to 0.1. If the adjusted p value cutoff will be a value other than 0.1, alpha should be set to that value. Using the code below, we can change the cutoff to be 0.05 instead
+
+```{r}
+res05 <- results(dds, alpha=0.05)
+summary(res05)
+```
+Much better, 10% was a bit too high.
+
+## Adding annotations
+
+Install more programs in your consul using BiocManager install: BiocManager::install("AnnotationDbi")
+BiocManager::install("org.Hs.eg.db")
+
+Same as before, if it asks you to update other packages, put "n" for none
+
+Then we can call it from the library function
+
+```{r}
+library("AnnotationDbi")
+library("org.Hs.eg.db")
+# lets have a look at our column options for this
+columns(org.Hs.eg.db)
+```
+
+Look at these column names, these are all databases that have gene IDs. So you can now pick your favorite database. Our dataset has the genes listed in Ensamble, now we want to add Symbol to it
+
+
+We can use the mapIds() function to add individual columns to our results table. We provide the row names of our results table as a key, and specify that keytype=ENSEMBL. The column argument tells the mapIds() function which information we want, and the multiVals argument tells the function what to do if there are multiple possible values for a single input value. Here we ask to just give us back the first one that occurs in the database.
+
+```{r}
+res$symbol <- mapIds(org.Hs.eg.db, 
+# Our genenames they're in the row names
+                     keys=row.names(res), 
+# The format of our genenames
+                     keytype="ENSEMBL",
+# The new format we want to add
+                     column="SYMBOL",        
+# If there are multiple genes that map, just take the first name
+                     multiVals="first")
+head(res)
+```
+
+
+> Q11. Run the mapIds() function two more times to add the Entrez ID and UniProt accession and GENENAME as new columns called res$entrez, res$uniprot and res$genename.
+
+
+```{r}
+# this is what GO and KEGG uses
+# it doesn't matter which order you add the column or keytype (notice that they are reversed from above)
+res$entrez <- mapIds(org.Hs.eg.db,
+                     keys=row.names(res),
+                     column="ENTREZID",
+                     keytype="ENSEMBL",
+                     multiVals="first")
+
+res$uniprot <- mapIds(org.Hs.eg.db,
+                     keys=row.names(res),
+                     column="UNIPROT",
+                     keytype="ENSEMBL",
+                     multiVals="first")
+
+res$genename <- mapIds(org.Hs.eg.db,
+                     keys=row.names(res),
+                     column="GENENAME",
+                     keytype="ENSEMBL",
+                     multiVals="first")
+
+head(res)
+```
+
+Now arrange by the p-adjust value
+
+```{r}
+# order the results by padj column
+ord <- order( res$padj )
+#View(res[ord,])
+head(res[ord,])
+# save the results
+write.csv(res[ord,], "deseq_results.csv")
+```
+
+## Data Visualization
+
+Now we can make some Volcano Plots which is often how people look at these things.
+```{r}
+plot( res$log2FoldChange,  -log(res$padj), 
+      xlab="Log2(FoldChange)",
+      ylab="-Log(P-value)")
+```
+
+That wasn't super informative, we can try adding cut-off lines to match the 
+
+```{r}
+plot( res$log2FoldChange,  -log(res$padj), 
+ ylab="-Log(P-value)", xlab="Log2(FoldChange)")
+
+# Add some cut-off lines
+# these are the two vertical lines at -2 and 2 based on log2 fold change of at least 2
+abline(v=c(-2,2), col="darkgray", lty=2)
+# at least a log fold of ___ for the horizontal line
+abline(h=-log(0.05), col="darkgray", lty=2)
+```
+
+Black only is kinda boring, lets try adding some color
+
+```{r}
+# Setup our custom point color vector 
+mycols <- rep("gray", nrow(res))
+mycols[ abs(res$log2FoldChange) > 2 ]  <- "red" 
+
+inds <- (res$padj < 0.01) & (abs(res$log2FoldChange) > 2 )
+mycols[ inds ] <- "blue"
+
+# Volcano plot with custom colors 
+plot( res$log2FoldChange,  -log(res$padj), 
+ col=mycols, ylab="-Log(P-value)", xlab="Log2(FoldChange)" )
+
+# Cut-off lines
+abline(v=c(-2,2), col="gray", lty=2)
+abline(h=-log(0.1), col="gray", lty=2)
+```
+So red here isn't significant, but blue is which looks much better and is more informative.
+
+If you want to make a prettier plot, you can use the `EnhancedVolcano` once again we will install it using `BiocManager::install("EnhancedVolcano")` and will select none if it asks about updating.
+
+```{r}
+# call the program
+library(EnhancedVolcano)
+# too difficult to write res everytime, so we're just going to store it as a dataframe called "x"
+x <- as.data.frame(res)
+# look at the dataframe to double check
+head(x)
+# make a plot
+EnhancedVolcano(x,
+    lab = x$symbol,
+    x = 'log2FoldChange',
+    y = 'pvalue')
+```
+
+Cool
+
+## Pathway Analysis using KEGG and GO
+
+First as always we'll need to install our packages in the R consul using `BiocManager::install( c("pathview", "gage", "gageData") )`.
+
+```{r}
+# call the packages of interest
+library(pathview)
+library(gage)
+library(gageData)
+
+# now we're going to grab info from kegg
+data(kegg.sets.hs)
+
+# Examine the first 2 pathways in this kegg set for humans
+head(kegg.sets.hs, 2)
+```
+
+The main gage() function requires a named vector of fold changes, where the names of the values are the Entrez gene IDs.
+
+```{r}
+#Note that we used the mapIDs() function above to obtain Entrez gene IDs (stored in res$entrez) and we have the fold change results from DESeq2 analysis (stored in res$log2FoldChange).
+foldchanges = res$log2FoldChange
+names(foldchanges) = res$entrez
+head(foldchanges)
+# Get the results using the gage package
+keggres = gage(foldchanges, gsets=kegg.sets.hs)
+#N ow lets look at the object returned from gage().
+attributes(keggres)
+# Look at the first three down (less) pathways
+head(keggres$less, 3)
+```
+
+This will give you the pathway names as hsa# . You can now pull up the pathway using the below command
+
+```{r}
+pathview(gene.data=foldchanges, pathway.id="hsa05310")
+```
+
+there are arguments that you can pass to pathview to get higher resolution figures and other things. The hsa#.png will show you the default pathway, the hsa#pathview.png
+
+You can use the below command DON'T RUN IT AS AN R CODE
+
+![](hsa05310.pathview.png)
+
+```{r}
+# this one has kegg.native = false, this will make it a pdf instead of png
+pathview(gene.data=foldchanges, pathway.id="hsa05310", kegg.native=FALSE)
+```
+
+>Q12. Can you do the same procedure as above to plot the pathview figures for the top 2 down-reguled pathways? 
+
+```{r}
+pathview(gene.data=foldchanges, pathway.id="hsa04940")
+```
+
+![](hsa04940.pathview.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
