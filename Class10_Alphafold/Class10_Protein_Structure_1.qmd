@@ -1,7 +1,7 @@
 ---
 title: "Class10_Structure"
 author: "Krysten Jones (A10553682)"
-format: pdf
+format: gfm
 ---
 
 We will start by using the protein data bank (PDB) website located at https://www.rcsb.org/ and “Analyze” > “PDB Statistics” > “by Experimental Method and Molecular Type”. 
@@ -178,7 +178,7 @@ files <- get.pdb(hits$pdb.id, path="pdbs", split=TRUE, gzip=TRUE)
 ```
 
 ```{r}
-# Align releated PDBs
+# Align related PDBs
 pdbs <- pdbaln(files, fit = TRUE, exefile="msa")
 # Vector containing PDB codes for figure axis
 ids <- basename.pdb(pdbs$id)
@@ -198,10 +198,10 @@ anno
 
 PCA
 ```{r}
+library(bio3d)
 # Perform PCA
 pc.xray <- pca(pdbs)
 plot(pc.xray)
-plot(pc.xray[1,2])
 
 # Calculate RMSD
 rd <- rmsd(pdbs)
