@@ -1,7 +1,7 @@
 ---
 title: "Class07_Unsupervised_Machine_Learning1"
 author: "Krysten Jones (A10553682)"
-format: pdf 
+format: gfm
 ---
 Today we will start with k-means clustering which is one of the most popular means of clustering along with UMAP and t-SNE. K-means is fast and computes many things for you. The challenge with this is you have to define the number of clusters (represented by K) for your data. 
 
