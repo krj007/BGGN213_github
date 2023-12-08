@@ -1,4 +1,4 @@
-# BGGN213
+# Bioinformatics Course Fall 2023
 
 Classwork from [BGGN213](https://bioboot.github.io/bggn213_F23/) at UC San Diego (Fall 2023)
 - [Class 1 Data Visualization with ggplot2](https://github.com/krj007/BGGN213_github/blob/main/class05/Class05_Ggplot2.md)
