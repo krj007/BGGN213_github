@@ -1,7 +1,7 @@
 ---
 title: "Class11_Alphafold2"
 author: "Krysten Jones (A10553682)"
-format: pdf
+format: gfm
 ---
 # The EBI AlphaFold database
 Using alphafold https://alphafold.ebi.ac.uk/ you can search for your protein sequence by just entering it into the search bar. It is based on the Uniprot database
