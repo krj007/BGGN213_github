@@ -1,13 +1,13 @@
 ---
 title: "Class 5: Data Visualization with ggplot2"
 author: "Krysten Jones (A10553682)"
-format: pdf
+format: gfm
 ---
 
 ## Using ggplot2
 
 To use ggplot2, first we need to install it on our computers. To do this we will use the function`install.packages()`
-We could put this in a code chunk, but every time we click render it will install the package again. Instead install in the consule (only need to do once)
+We could put this in a code chunk, but every time we click render it will install the package again. Instead install in the consul (only need to do once)
 
 Before we use any package functions, we have to load them up with a `library' call, like below:
 
