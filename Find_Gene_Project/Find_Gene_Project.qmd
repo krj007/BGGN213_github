@@ -1,7 +1,7 @@
 ---
 title: "Find_Gene_Project"
 author: "Krysten Jones (A10553682)"
-format: html
+format: gfm
 ---
 
 # Using Bio3D

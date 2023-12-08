@@ -1,0 +1,325 @@
+---
+title: "Find_Gene_Project"
+author: "Krysten Jones (A10553682)"
+format: gfm
+---
+
+
+# Using Bio3D
+
+> [Q7] Generate a sequence identity based heatmap of your aligned sequences using R.If necessary convert your sequence alignment to the ubiquitous FASTA format (Seaview can read in clustal format and “Save as” FASTA format for example). Read this FASTA format alignment into R with the help of functions in the Bio3D package.
+
+First as always, call your programs
+
+```{r}
+library(bio3d)
+Fasta <- read.fasta("MEGA_FASTA.fas")
+```
+
+
+> Calculate a sequence identity matrix (again using a function within the Bio3D package).
+
+
+```{r}
+identity_matrix <- seqidentity(Fasta)
+identity_matrix
+```
+
+
+> Then generate a heatmap plot and add to your report. Do make sure your labels are visible and not cut at the ﬁgure margins.
+
+
+```{r}
+library("pheatmap")
+#vector of labels
+seq_labs <- c( "T._guttata_sialytransferase","Human_St6Gal1", "Green_crombec", "California_thrasher", "Black_sunbird", "Elegant_woodcreeper", "Loggerhead_shrike", "Softshell_turtle", "American_alligator", "Loggerhead_sea_turtle", "Vesper_bat", "Indian_flying_fox")
+```
+
+
+Make heatmap using identity matrix
+
+
+```{r}
+pheatmap(identity_matrix,
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         annotation_legend_title = "Sequence Identity Heatmap",
+         color=colorRampPalette(c("red", "yellow"))(100))
+```
+
+
+## Generating a consensus sequence and row-wise maximum from your sequence identity matrix
+
+
+```{r}
+#determining file type
+class(Fasta)
+file.info("MEGA_FASTA.fas")
+# generating consensus sequence using Bio3D
+con_seq <- consensus(Fasta)
+print(con_seq$seq)
+```
+
+
+What if we change the cutoff, does that change the sequence?
+
+
+```{r}
+con <- consensus(Fasta, cutoff = 0.6)
+print(con$seq)
+# if want to remove the "" from the concensus sequence, you can call the code below
+#cat(x, sep ="")
+```
+
+This appears to be the default cutoff
+
+## Blast pdb
+
+
+```{r}
+#| eval: false
+consensus_blast <- blast.pdb(con$seq)
+hits <- plot(consensus_blast)
+# Then save it so we don't have to blast again and you can skip to the next code chunk
+save(hits, consensus_blast, file = "consensus_blast_results.Rds")
+```
+
+Using the `blast.pdb()` function with the consensus sequence threw an error the first time so I did a bunch of extra unnecessary steps below TT.TT. Skip from here to "PDB Results" section
+
+Now we can load the results and skip re-running blast through the code chunk above
+
+
+```{r}
+load("consensus_blast_results.Rds")
+hits
+```
+
+
+
+## Skip if consensus search works
+
+So it would be better just to search the sequence of interest and the highest conserved sequence based on the sequence identity matrix. 
+
+To do this, we first need to subset just our sequence of interest from the FASTA file.
+
+## identity matrix max
+
+
+```{r}
+row_max_values <- apply(identity_matrix, 1, max)
+row_max_values
+```
+
+Also having all the max be 1 is odd, this is because I've set the same identity to itself for the heatmap, we're interested in the other identities for this, lets look at all of the unique identities
+
+Finding identity matrix unique
+
+
+```{r}
+unique_values_per_row <- apply(identity_matrix, 1, unique)
+unique_values_per_row
+```
+
+Trying to get an easier visualization so I don't have to look at all the numbers
+
+```{r}
+greater_than_threshold <- identity_matrix >= 0.983
+greater_than_threshold
+values_above_threshold <- identity_matrix[greater_than_threshold]
+print(values_above_threshold)
+```
+
+Green crombec, california thrasher, and elegant woodcreeper all have the highest sequence identity of 0.983. So any of these sequences should work
+
+
+## Subsetting a FASTA file (double skip this)
+
+This is only if you forget quotation marks for your FASTA sequence so you think something is wrong >.<
+
+To subset a fasta file, you first need to define the file path. You can figure out and set the file path using `getwd()` and assigning it to a variable. 
+
+
+```{r}
+#| eval: false
+getwd()
+file_path <- "/Users/kryst/Documents/UCSD 2022/Classes/2023 Q4 Fall/BGGN 213/Lab Assignments/Find_Gene_Project/MEGA_FASTA.fas" 
+```
+
+
+Subsetting sequence from fasta file using Biostrings package. Biostrings is part of bioconductor so first you need to install it using `BiocManager::install("Biostrings")`. Looking at our original FASTA file, the sequence of interest is stored as the third sequence so in the `fasta_sequences` function, we will call the third vector
+
+```{r}
+#| eval: false
+#| warning: false
+library(Biostrings)
+fasta_sequences <-readAAStringSet(file_path)
+guttata <- fasta_sequences[[3]]
+guttata
+```
+
+
+
+## Getting Protein Database (PDB) info using Bio3D (skip again if consensus works)
+
+The `blast.pdb()` function will only use a single sequence character, but our subsetting above didn't work because there is other data. Instead you can just post the FASTA sequence using quotation marks
+
+
+```{r}
+#| eval: false
+guttata <- blast.pdb("PSSGMLGIVLMXXLCDQVDVYEFLPSKRQTDICHYYQKFHDHACTMGAYHPLLFEKNLVKHMNQGTDEDIYTHGKVTLPGFRKVHC")
+# save output so we don't need to run blast every time
+g_hits <- plot(guttata)
+save(g_hits, guttata, file = "guttata_blast_results.Rds")
+```
+
+
+Doing the same using Green crombec as the consensus due to it having the highest sequence max identity (in this case 0.983). Could have picked one of the 2 others with this value as well
+
+
+```{r}
+#| eval: false
+library(bio3d)
+crombec <- blast.pdb("PSSGMLGIVLMMTLCDQVDVYEFLPSKRQTDICHYYQKFHDHACTMGAYHPLLFEKNLVKHMNQGTDEDIYTHGKVTLPGFRNVHC")
+c_hits <- plot(crombec)
+save(c_hits, crombec, file = "cromec_blast_results.Rds")
+```
+
+
+Loading Rds files we made
+
+
+Interestingly, loading just the hits will give fewer results (see below)
+
+```{r}
+load("guttata_blast_results.Rds")
+g_hits
+load("cromec_blast_results.Rds")
+c_hits
+```
+
+```{r}
+guttata
+```
+
+This gives you 7 results. 
+
+## calling the files directly instead of just the hits
+
+
+```{r}
+consensus_blast
+```
+
+This gives 8 results
+
+```{r}
+crombec
+```
+
+This gives you 7 results. 
+
+Interestingly, when you compare the T.guttata sequence to inputting the FASTA sequence in blastp (https://blast.ncbi.nlm.nih.gov/) and using the pdb database, you get 7 hits instead of 3. 
+
+
+## PDB Results
+
+The `pdb.annotate()` function in Bio3d of FASTA file can give you information on  PDB identifier (structureId), Method used to solve the structure (experimentalTechnique),resolution (resolution), and source organism (source) to answer the question. I just looked it up online cause blast was taking forever
+
+
+```{r}
+#| eval: false
+con_anno <- pdb.annotate(con)
+guttata_anno <-pdb.annotate(guttata)
+crombec_anno <-pdb.annotate(crombec)
+```
+
+
+
+The results from CONSENSUS online search include:
+
+Getting results from CONSENSUS Bio3D search include:6QVS, 4JS1, and 4MPS which is the same as just searching the guttata sequence (see further code chunks)
+
+
+```{r}
+# pull files
+files <- get.pdb(hits$pdb.id, path="pdbs", split=TRUE, gzip=TRUE)
+# align files
+pdbs <- pdbaln(files, fit = TRUE, exefile="msa")
+# create id's for figure
+ids <- basename.pdb(pdbs$id)
+```
+
+
+You can use this to plot a giant figure
+
+
+```{r}
+#| eval: false
+plot(pdbs, labels=ids)
+```
+
+
+The results from our guttata online search include: 4JS1, 6QVS, and 4MPS
+
+
+```{r}
+js1 <- read.pdb("4JS1")
+qvs <- read.pdb("6QVS")
+mps <- read.pdb("4MPS")
+```
+
+
+The results from the Bio3D search for T. guttata are: 4JS1, 6QVS, 4MPS, 6APL, 6APJ, 2WML, and 2WNB 
+
+
+```{r}
+# same 3 as above, but also
+apl <-read.pdb("5APL")
+apj <-read.pdb("6APJ")
+wml <-read.pdb("2WML")
+wnb <-read.pdb("2WNB")
+```
+
+
+
+The results from our online search using "bird" include: 4JS1, 6QVS, 4MPS, 2WML, and 2WNB which are included in the Bio3d search for T. guttata sequence
+
+The results from the Bio3D search for "bird" are: 
+
+Let's take a look at some of the information stored in here
+
+
+```{r}
+js1
+```
+
+Cool, lets grab some more data so we can do some conversions
+
+First download related pdb files, not sure how this is different from running the blast search above, I think it's just calling part of it? specifically it's calling the pdb id's from the hits files which we can do instead of calling each of the ID's individually like I do above
+
+```{r}
+#| eval: false
+# pull files
+g_files <- get.pdb(g_hits$pdb.id, path="pdbs", split=TRUE, gzip=TRUE)
+c_files <- get.pdb(c_hits$pdb.id, path="pdbs", split=TRUE, gzip=TRUE)
+# align files
+pdbs <- pdbaln(files, fit = TRUE, exefile="msa")
+# create id's for figure
+ids <- basename.pdb(pdbs$id)
+```
+
+
+
+## Calculating RMSD
+
+`pdb.annotate()` provides a convenient way of annotating the PDB files we have
+collected. Below we use the function to annotate each structure to its source species. This will come in handy when annotating plots later on
+
+
+
+```{r}
+#| eval: false
+# Calculate RMSD
+rd <- rmsd(pdbs)
+```
+
